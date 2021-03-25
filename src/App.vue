@@ -1,7 +1,31 @@
 <template>
   <div class="container mx-auto flex flex-col items-center bg-gray-100 p-4">
+    <div
+      v-if="isLoading"
+      class="fixed w-100 h-100 opacity-80 bg-purple-800 inset-0 z-50 flex items-center justify-center"
+    >
+      <svg
+        class="animate-spin -ml-1 mr-3 h-12 w-12 text-white"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+      >
+        <circle
+          class="opacity-25"
+          cx="12"
+          cy="12"
+          r="10"
+          stroke="currentColor"
+          stroke-width="4"
+        ></circle>
+        <path
+          class="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+        ></path>
+      </svg>
+    </div>
     <div class="container">
-      <div class="w-full my-4"></div>
       <section>
         <div class="flex">
           <div class="max-w-xs">
@@ -10,8 +34,9 @@
             >
             <div class="mt-1 relative rounded-md shadow-md">
               <input
+                @input="addHint"
                 v-model="ticker"
-                @keydown.enter="add"
+                @keydown.enter="add(ticker)"
                 type="text"
                 name="wallet"
                 id="wallet"
@@ -19,10 +44,23 @@
                 placeholder="Например DOGE"
               />
             </div>
+            <div class="flex bg-white shadow-md p-1 rounded-md flex-wrap">
+              <span
+                v-for="(h, idx) in hints"
+                :key="idx"
+                @click="add(h)"
+                class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
+              >
+                {{ h }}
+              </span>
+            </div>
+            <div v-if="errPreviouslyAdded" class="text-sm text-red-600">
+              Такой тикер уже добавлен
+            </div>
           </div>
         </div>
         <button
-          @click="add"
+          @click="add(ticker)"
           type="button"
           class="my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
         >
@@ -42,7 +80,6 @@
           Добавить
         </button>
       </section>
-
       <template v-if="tickers.length">
         <hr class="w-full border-t border-gray-600 my-4" />
         <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
@@ -100,7 +137,7 @@
           ></div>
         </div>
         <button
-          @click="sel = null"
+          @click="cel = null"
           type="button"
           class="absolute top-0 right-0"
         >
@@ -134,18 +171,38 @@
 <script>
 export default {
   name: "App",
+  coinList: null,
 
   data() {
     return {
-      ticker: null,
+      ticker: "",
       tickers: [],
       sel: null,
       graph: [],
+      isLoading: true,
+      errPreviouslyAdded: false,
+      hints: [],
     };
   },
+
+  mounted: async function () {
+    const response = await fetch(
+      "https://min-api.cryptocompare.com/data/all/coinlist?summary=true"
+    );
+    const data = await response.json();
+    this.coinList = data.Data;
+    this.isLoading = false;
+  },
+
   methods: {
-    add() {
-      const currentTicker = { name: this.ticker, price: "-" };
+    add(hint) {
+      const hintUpper = hint.toUpperCase();
+      this.ticker = hintUpper;
+      console.log(this.tickers);
+      if (this.tickers.find((t) => t.name == hintUpper)) {
+        return (this.errPreviouslyAdded = true);
+      }
+      const currentTicker = { name: hintUpper, price: "-" };
 
       this.tickers.push(currentTicker);
 
@@ -164,6 +221,8 @@ export default {
       }, 5000); */
 
       this.ticker = "";
+      this.hints = [];
+      this.errPreviouslyAdded = false;
     },
 
     handleDelete(tickerToRemove) {
@@ -183,8 +242,30 @@ export default {
       this.sel = ticker;
       this.graph = [];
     },
+
+    addHint() {
+      if (this.ticker.length) {
+        this.errPreviouslyAdded = false;
+        const newArr = [];
+
+        for (let coin in this.coinList) {
+          if (newArr.length > 3) {
+            return;
+          }
+          let symbol = this.coinList[coin].Symbol;
+          let name = this.coinList[coin].FullName;
+          if (symbol.toLowerCase() === this.ticker.toLowerCase()) {
+            newArr.unshift(symbol);
+          } else if (name.toLowerCase().includes(this.ticker.toLowerCase())) {
+            name = symbol;
+            newArr.push(name);
+          } else {
+            this.hints = [];
+          }
+          this.hints = newArr;
+        }
+      }
+    },
   },
 };
 </script>
-
-<style src="./app.css"></style>
