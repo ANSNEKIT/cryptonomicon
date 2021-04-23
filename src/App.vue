@@ -142,7 +142,10 @@
         <h3 class="text-lg leading-6 font-medium text-gray-900 my-8">
           {{ selectedTicker.name }} - USD
         </h3>
-        <div class="flex items-end border-gray-600 border-b border-l h-64">
+        <div
+          class="flex items-end border-gray-600 border-b border-l h-64"
+          ref="graph"
+        >
           <div
             v-for="(bar, idx) in normalizedGraph"
             :key="idx"
@@ -183,7 +186,7 @@
 </template>
 
 <script>
-import { subscribeToTicker, unsubscribeFromTicker } from "./api";
+import { getAllCoins, subscribeToTicker, unsubscribeFromTicker } from "./api";
 
 export default {
   name: "App",
@@ -196,7 +199,10 @@ export default {
 
       tickers: [],
       selectedTicker: null,
+
       graph: [],
+      maxGraphElements: 40,
+
       isLoading: true,
       errPreviouslyAdded: false,
       hints: [],
@@ -238,17 +244,17 @@ export default {
     setInterval(this.updateTickers, 5000);
   },
 
-  mounted: async function () {
-    // realAPI key = "3c03a6dbebfaee780e5db05e16794655250d6e9a6278dcbaa85b97eff2c821e4";
-    // Fake API key = "ce3fd966e7a1d10d65f907b20bf000552158fd3ed1bd614110baa0ac6cb57a7e";
-    const API_KEY =
-      "3c03a6dbebfaee780e5db05e16794655250d6e9a6278dcbaa85b97eff2c821e4";
-    const response = await fetch(
-      `https://min-api.cryptocompare.com/data/all/coinlist?summary=true&api_key=${API_KEY}`
-    );
-    const data = await response.json();
-    this.coinList = data.Data;
-    this.isLoading = false;
+  mounted() {
+    getAllCoins().then((coins) => {
+      this.coinList = coins;
+      this.isLoading = false;
+    });
+
+    window.addEventListener("resize", this.calculateMaxGraphElements);
+  },
+
+  beforeUnmount() {
+    window.removeEventListener("resize", this.calculateMaxGraphElements);
   },
 
   computed: {
@@ -290,12 +296,23 @@ export default {
   },
 
   methods: {
+    calculateMaxGraphElements() {
+      if (!this.$refs.graph) {
+        return;
+      }
+
+      this.maxGraphElements = this.$refs.graph.clientWidth / 38;
+    },
+
     updateTicker(tickerName, price) {
       this.tickers
         .filter(t => t.name === tickerName)
         .forEach(t => {
           if (t === this.selectedTicker) {
             this.graph.push(price);
+            while (this.graph.length > this.maxGraphElements) {
+              this.graph.shift();
+            }
           }
           t.price = price;
         });
@@ -341,7 +358,6 @@ export default {
 
     select(ticker) {
       this.selectedTicker = ticker;
-      this.graph = [];
     },
 
     addHint() {
@@ -374,9 +390,9 @@ export default {
       this.graph = [];
     },
 
-    tickers(newValue, oldValue) {
+    tickers() {
       // Почему не сработал watch при добавлении?
-      console.log(newValue === oldValue);
+      //console.log(newValue === oldValue);
       localStorage.setItem("cryptonomicon-list", JSON.stringify(this.tickers));
     },
 

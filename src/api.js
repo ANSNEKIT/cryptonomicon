@@ -43,16 +43,25 @@ function sendToWebSocket(message) {
 function subscribeToTickerOnWs(ticker) {
   sendToWebSocket({
     action: "SubAdd",
-    subs: [`5~CCCAGG~${ticker}~USD`]
+    subs: [`5~CCCAGG~${ticker}~USD`],
   });
 }
 
 function unsubscribeFromTickerOnWs(ticker) {
   sendToWebSocket({
     action: "SubRemove",
-    subs: [`5~CCCAGG~${ticker}~USD`]
+    subs: [`5~CCCAGG~${ticker}~USD`],
   });
 }
+
+export const getAllCoins = async () => {
+  const response = await fetch(
+    `https://min-api.cryptocompare.com/data/all/coinlist?summary=true&api_key=${API_KEY}`
+  );
+  let data = await response.json();
+
+  return data.Data;
+};
 
 export const subscribeToTicker = (ticker, cb) => {
   const subscribers = tickersHandlers.get(ticker) || [];
